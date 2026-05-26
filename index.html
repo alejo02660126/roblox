@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roblox</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800&display=swap" rel="stylesheet">
+
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: 'Nunito', sans-serif;
+  min-height: 100vh;
+  color: #e8e8e8;
+  overflow-x: hidden;
+  position: relative;
+  background-color: #0d0d0d;
+}
+
+#bgCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ── Barra superior ── */
+.top-bar {
+  position: relative; z-index: 10;
+  background: #161616;
+  border-bottom: 1px solid #252525;
+  display: flex; align-items: center;
+  padding: 0 20px;
+  height: 54px;
+}
+
+/* ── Botón derecho: robux2 + valor + Enviar ── */
+.top-bar-right {
+  display: flex; align-items: center;
+  gap: 8px; flex-shrink: 0;
+  margin-left: auto;
+}
+.send-pill {
+  display: flex; align-items: center; gap: 6px;
+  background: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 20px;
+  padding: 6px 14px 6px 10px;
+}
+.send-pill-icon {
+  width: 20px; height: 20px;
+  object-fit: contain; flex-shrink: 0;
+}
+.send-pill-val {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px; font-weight: 800;
+  color: #dde8ff; min-width: 16px; cursor: pointer;
+}
+.send-pill-input {
+  display: none;
+  background: transparent; border: none; outline: none;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px; font-weight: 800;
+  color: #dde8ff; width: 60px;
+}
+.send-pill-input.on { display: inline-block; }
+
+.btn-enviar {
+  display: flex; align-items: center; gap: 5px;
+  background: #f0f0f0;
+  border: none; border-radius: 8px;
+  padding: 6px 14px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 800;
+  color: #111; cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-enviar:hover { background: #fff; }
+
+/* ── OVERLAY 85% visible ── */
+.overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,0.15);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.22s ease;
+}
+.overlay.open { opacity: 1; pointer-events: all; }
+
+/* ── MODAL Send Robux ── */
+.modal {
+  background: #1c1f2e;
+  border: 1px solid #2e3248;
+  border-radius: 14px;
+  width: 100%; max-width: 460px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+  transform: scale(0.94) translateY(10px);
+  transition: transform 0.26s cubic-bezier(0.34,1.4,0.64,1), opacity 0.22s ease;
+  opacity: 0;
+}
+.overlay.open .modal { transform: scale(1) translateY(0); opacity: 1; }
+
+.modal-head {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #2a2d42;
+}
+.modal-head-left { display: flex; align-items: center; gap: 10px; }
+.modal-head-icon { width: 28px; height: 28px; object-fit: contain; }
+.modal-head-title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 17px; font-weight: 800;
+  color: #fff; letter-spacing: -0.2px;
+}
+.modal-head-right { display: flex; align-items: center; gap: 10px; }
+.modal-head-balance { display: flex; align-items: center; gap: 6px; }
+.modal-head-bal-icon { width: 18px; height: 18px; object-fit: contain; }
+.modal-head-bal-val {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px; font-weight: 800; color: #dde8ff;
+}
+.modal-close {
+  background: none; border: none;
+  font-size: 18px; color: #556;
+  cursor: pointer; transition: color 0.15s; padding: 0 2px;
+}
+.modal-close:hover { color: #aab; }
+
+.modal-body { padding: 20px; }
+
+.modal-user-input {
+  width: 100%;
+  background: #111420;
+  border: 2px solid #3a5fc0;
+  border-radius: 8px;
+  padding: 13px 16px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px; font-weight: 700;
+  color: #fff; outline: none;
+  transition: border-color 0.15s;
+}
+.modal-user-input::placeholder { color: #3a4060; }
+.modal-user-input:focus { border-color: #5080e0; }
+
+.modal-searching {
+  text-align: center;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 600;
+  color: #4a5580; margin-top: 10px; min-height: 20px;
+}
+
+/* Avatar card resultado */
+.avatar-card {
+  display: none;
+  align-items: center; gap: 14px;
+  background: #111420;
+  border: 1px solid #2e3a60;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-top: 14px;
+  animation: fadeUp 0.25s ease;
+}
+.avatar-card.show { display: flex; }
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(6px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.avatar-img-wrap {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #1a1f35;
+  border: 2px solid #2e3a60;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.avatar-img-wrap img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+.avatar-info { flex: 1; }
+.avatar-username {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px; font-weight: 800;
+  color: #ffffff; letter-spacing: -0.2px;
+}
+.avatar-display-name {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px; font-weight: 600;
+  color: #4a5580; margin-top: 2px;
+}
+.avatar-badge {
+  font-size: 11px; font-weight: 700;
+  color: #3a8f5a;
+  background: rgba(58,143,90,0.15);
+  border: 1px solid rgba(58,143,90,0.3);
+  border-radius: 20px;
+  padding: 2px 9px; margin-top: 5px;
+  display: inline-block;
+}
+.avatar-not-found {
+  display: none;
+  text-align: center;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 600;
+  color: #6a3040; margin-top: 12px;
+}
+.avatar-not-found.show { display: block; }
+
+/* ════════════════════════════════
+   SEGUNDA PANTALLA: usuario encontrado
+   ════════════════════════════════ */
+.confirm-screen {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0 4px;
+  animation: fadeUp 0.25s ease;
+}
+.confirm-screen.show { display: flex; }
+
+/* Avatar grande circular */
+.confirm-avatar-wrap {
+  width: 82px; height: 82px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid #3a4a70;
+  background: #1a1f35;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+.confirm-avatar-wrap img {
+  width: 100%; height: 100%; object-fit: cover;
+}
+.confirm-username {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 17px; font-weight: 800;
+  color: #ffffff; margin-bottom: 2px;
+}
+.confirm-handle {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 600;
+  color: #4a5580; margin-bottom: 18px;
+}
+
+/* Fila robux2 + input valor — sin cuadro, centrado */
+.confirm-amount-row {
+  display: flex; align-items: center;
+  justify-content: center;
+  gap: 10px; width: 100%;
+  background: transparent;
+  border: none;
+  padding: 6px 0;
+  margin-bottom: 14px;
+}
+.confirm-r2-icon {
+  width: 32px; height: 32px; object-fit: contain; flex-shrink: 0;
+}
+.confirm-amount-input {
+  background: transparent;
+  border: none; outline: none;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 32px; font-weight: 800;
+  color: #ffffff; letter-spacing: -0.5px;
+  text-align: center;
+  width: auto; min-width: 60px; max-width: 200px;
+  /* Quitar flechas del input number */
+  -moz-appearance: textfield;
+}
+.confirm-amount-input::-webkit-outer-spin-button,
+.confirm-amount-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Choose amount label */
+.confirm-choose-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 700;
+  color: #4a5580; align-self: flex-start;
+  margin-bottom: 8px;
+  text-transform: none; letter-spacing: 0;
+}
+
+/* Botones predeterminados */
+.confirm-presets {
+  display: flex; gap: 8px;
+  width: 100%; margin-bottom: 16px;
+}
+.confirm-preset-btn {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  gap: 5px;
+  background: transparent;
+  border: 1px solid #2e3a60;
+  border-radius: 8px;
+  padding: 9px 4px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px; font-weight: 800;
+  color: #c0d0ff; cursor: pointer;
+  transition: all 0.15s;
+}
+.confirm-preset-btn:hover {
+  background: rgba(50,80,180,0.2);
+  border-color: #4a6090;
+  color: #fff;
+}
+.confirm-preset-btn.active {
+  background: rgba(50,80,180,0.35);
+  border-color: #5080d0;
+  color: #fff;
+}
+.confirm-preset-btn img {
+  width: 16px; height: 16px; object-fit: contain;
+}
+
+/* Botón Next — azul igual al pkg-btn.selected */
+.confirm-next-btn {
+  width: 100%;
+  background: #1565c0;
+  border: 1px solid #1976d2;
+  border-radius: 10px;
+  padding: 14px 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 17px; font-weight: 800;
+  color: #fff; cursor: pointer;
+  transition: background 0.15s;
+  margin-bottom: 10px;
+  letter-spacing: 0.1px;
+  box-shadow: 0 3px 14px rgba(21,101,192,0.5);
+}
+.confirm-next-btn:hover {
+  background: #1976d2;
+  box-shadow: 0 4px 18px rgba(21,101,192,0.7);
+}
+
+/* Nota inferior */
+.confirm-note {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px; font-weight: 600;
+  color: #3a4570; text-align: center;
+}
+
+/* ════════════════════════════════
+   TERCERA PANTALLA: confirmación final
+   ════════════════════════════════ */
+.review-screen {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0 4px;
+  animation: fadeUp 0.25s ease;
+}
+.review-screen.show { display: flex; }
+
+.review-avatar-wrap {
+  width: 82px; height: 82px;
+  border-radius: 50%; overflow: hidden;
+  border: 2px solid #3a4a70;
+  background: #1a1f35;
+  margin-bottom: 10px; flex-shrink: 0;
+}
+.review-avatar-wrap img {
+  width: 100%; height: 100%; object-fit: cover;
+}
+.review-username {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 17px; font-weight: 800;
+  color: #fff; margin-bottom: 2px;
+}
+.review-handle {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 600;
+  color: #4a5580; margin-bottom: 8px;
+}
+.review-meta {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 3px;
+  margin-bottom: 18px;
+}
+.review-meta-item {
+  display: flex; align-items: center; gap: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px; font-weight: 600;
+  color: #4a5580;
+}
+.review-meta-item svg {
+  width: 13px; height: 13px; flex-shrink: 0;
+  opacity: 0.5;
+}
+
+/* Valor grande centrado */
+.review-amount-row {
+  display: flex; align-items: center;
+  justify-content: center; gap: 12px;
+  margin-bottom: 22px; width: 100%;
+}
+.review-r2-icon {
+  width: 36px; height: 36px; object-fit: contain;
+}
+.review-amount-val {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 38px; font-weight: 800;
+  color: #fff; letter-spacing: -1px;
+}
+
+/* Botones Send + Edit */
+.review-btns {
+  display: flex; gap: 10px;
+  width: 100%; margin-bottom: 12px;
+}
+.review-btn-send {
+  flex: 1;
+  background: #1565c0;
+  border: 1px solid #1976d2;
+  border-radius: 10px; padding: 13px 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px; font-weight: 800;
+  color: #fff; cursor: pointer;
+  transition: background 0.15s;
+  box-shadow: 0 3px 14px rgba(21,101,192,0.5);
+}
+.review-btn-send:hover { background: #1976d2; }
+
+.review-btn-edit {
+  flex: 1;
+  background: #2a2d42;
+  border: 1px solid #3a3d52;
+  border-radius: 10px; padding: 13px 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px; font-weight: 800;
+  color: #bbc; cursor: pointer;
+  transition: background 0.15s;
+}
+.review-btn-edit:hover { background: #333650; }
+
+/* Nota inferior */
+.review-note {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px; font-weight: 600;
+  color: #3a4570; text-align: center;
+  line-height: 1.6;
+}
+.top-bar-close {
+  font-size: 18px; color: #555;
+  cursor: pointer; margin-right: 16px;
+  transition: color 0.15s;
+}
+.top-bar-close:hover { color: #bbb; }
+
+.top-bar-center {
+  position: absolute;
+  left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center;
+  pointer-events: none;
+}
+.top-bar-center .editable-field {
+  pointer-events: all;
+}
+.top-bar-center .inline-input {
+  pointer-events: all;
+}
+
+.editable-field {
+  cursor: pointer;
+  border-bottom: 1px dashed transparent;
+  padding: 1px 5px; border-radius: 3px;
+  transition: all 0.15s;
+}
+.editable-field:hover { border-bottom-color: #444; }
+
+.field-name  { font-size: 12px; font-weight: 700; color: #777; }
+.field-name:hover { color: #aaa; }
+.field-balance { font-size: 14px; font-weight: 700; color: #bbb; }
+.field-balance:hover { color: #eee; }
+
+.inline-input {
+  display: none;
+  background: #111; border: 1px solid #444;
+  border-radius: 5px; padding: 2px 9px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px; font-weight: 700; color: #fff;
+  outline: none; width: 160px; text-align: center;
+}
+.inline-input.on { display: inline-block; }
+
+/* ── Contenido principal ── */
+.main {
+  position: relative; z-index: 1;
+  max-width: 740px; margin: 0 auto;
+  padding: 38px 28px 60px;
+}
+
+.big-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 52px; font-weight: 900;
+  color: #1a2f5e;
+  text-align: center;
+  line-height: 1.15;
+  margin-bottom: 28px;
+  letter-spacing: -0.5px;
+}
+
+.section-label {
+  font-size: 15px; font-weight: 700;
+  color: #999; margin-bottom: 12px;
+}
+
+/* PUNTO 2 — Card completamente opaca, sin transparencia */
+.content-card {
+  background: #16161e;           /* color sólido, nada se ve atrás */
+  border: 1px solid #2a2a3a;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+}
+
+/* Banner */
+.banner-wrap {
+  width: 100%;
+  height: 120px;
+  position: relative;
+  overflow: hidden;
+  background: #1a1a2a;
+  display: block;
+}
+.banner-placeholder {
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, #1a1a2a 0%, #1e2540 50%, #252535 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; color: #444; font-weight: 600;
+  z-index: 1;
+}
+.game-banner {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; object-position: center center;
+  display: block; z-index: 2;
+  opacity: 0; transition: opacity 0.3s ease;
+}
+.game-banner.loaded { opacity: 1; }
+
+/* Paquetes */
+.packages { padding: 6px 18px 10px; }
+
+.pkg-row {
+  display: flex; align-items: center;
+  padding: 11px 0;
+  cursor: default;
+}
+
+.pkg-left {
+  display: flex; align-items: center;
+  gap: 8px; flex: 1;
+}
+
+.pkg-icon {
+  width: 26px; height: 26px;
+  object-fit: contain; flex-shrink: 0;
+}
+
+.pkg-amount {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 24px; font-weight: 800;
+  color: #1a3060; letter-spacing: -0.3px;
+}
+.pkg-old {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px; font-weight: 700;
+  color: #4a6090; text-decoration: line-through; margin-left: 2px;
+}
+.pkg-bonus {
+  font-family: 'Nunito', sans-serif;
+  font-size: 12px; font-weight: 700; color: #666;
+  background: rgba(255,255,255,0.06);
+  padding: 3px 9px; border-radius: 20px;
+  margin-left: 6px; white-space: nowrap;
+}
+
+.pkg-btn {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; padding: 10px 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px; font-weight: 800; color: #aac;
+  cursor: pointer; transition: all 0.15s;
+  min-width: 120px; text-align: center; letter-spacing: -0.2px;
+}
+.pkg-btn:hover {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(255,255,255,0.2); color: #ddf;
+}
+.pkg-btn.selected {
+  background: #1565c0; border-color: #1976d2; color: #fff;
+  box-shadow: 0 3px 14px rgba(21,101,192,0.5);
+}
+
+/* ════════════════════════════════
+   TERCERA PANTALLA: confirmación final
+   ════════════════════════════════ */
+.review-screen {
+  display: none; flex-direction: column;
+  align-items: center; padding: 10px 0 4px;
+  animation: fadeUp 0.25s ease;
+}
+.review-screen.show { display: flex; }
+.review-avatar-wrap {
+  width: 82px; height: 82px; border-radius: 50%;
+  overflow: hidden; border: 2px solid #3a4a70;
+  background: #1a1f35; margin-bottom: 10px; flex-shrink: 0;
+}
+.review-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; }
+.review-username {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 17px; font-weight: 800; color: #fff; margin-bottom: 2px;
+}
+.review-handle {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 600; color: #4a5580; margin-bottom: 6px;
+}
+.review-meta {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 3px; margin-bottom: 16px;
+}
+.review-meta-item {
+  display: flex; align-items: center; gap: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px; font-weight: 600; color: #4a5580;
+}
+.review-amount-row {
+  display: flex; align-items: center;
+  justify-content: center; gap: 12px;
+  margin-bottom: 22px; width: 100%;
+}
+.review-r2-icon { width: 36px; height: 36px; object-fit: contain; }
+.review-amount-val {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 38px; font-weight: 800;
+  color: #fff; letter-spacing: -1px;
+}
+.review-btns { display: flex; gap: 10px; width: 100%; margin-bottom: 12px; }
+.review-btn-send {
+  flex: 1; background: #1565c0; border: 1px solid #1976d2;
+  border-radius: 10px; padding: 13px 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px; font-weight: 800; color: #fff; cursor: pointer;
+  transition: background 0.15s;
+  box-shadow: 0 3px 14px rgba(21,101,192,0.5);
+}
+.review-btn-send:hover { background: #1976d2; }
+.review-btn-edit {
+  flex: 1; background: #2a2d42; border: 1px solid #3a3d52;
+  border-radius: 10px; padding: 13px 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px; font-weight: 800; color: #bbc; cursor: pointer;
+  transition: background 0.15s;
+}
+.review-btn-edit:hover { background: #333650; }
+.review-note {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px; font-weight: 600;
+  color: #3a4570; text-align: center; line-height: 1.6;
+}
+
+/* ════════════════════════════════
+   CUARTA PANTALLA: Robux Sent!
+   ════════════════════════════════ */
+.sent-screen {
+  display: none; flex-direction: column;
+  align-items: center; padding: 24px 0 8px;
+  animation: fadeUp 0.25s ease;
+}
+.sent-screen.show { display: flex; }
+
+.sent-check-circle {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: #22c55e;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 18px;
+  box-shadow: 0 0 28px rgba(34,197,94,0.45);
+}
+.sent-check-circle svg {
+  width: 36px; height: 36px;
+}
+
+.sent-title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 22px; font-weight: 800;
+  color: #fff; margin-bottom: 10px;
+  letter-spacing: -0.3px;
+}
+
+.sent-desc {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px; font-weight: 500;
+  color: #8899bb; text-align: center;
+  line-height: 1.5; margin-bottom: 28px;
+}
+.sent-desc strong {
+  color: #fff; font-weight: 800;
+}
+
+.sent-btn-done {
+  width: 100%;
+  background: #2a2d42;
+  border: 1px solid #3a3d52;
+  border-radius: 10px; padding: 13px 0;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 16px; font-weight: 800;
+  color: #bbc; cursor: pointer;
+  transition: background 0.15s;
+}
+.sent-btn-done:hover { background: #333650; color: #fff; }
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+
+<!-- Barra superior -->
+<div class="top-bar">
+  <span class="top-bar-close" title="Cerrar">✕</span>
+  <div class="top-bar-center">
+    <span class="editable-field field-name" id="nameDisplay"
+      onclick="startEdit('name')" title="Click para editar">Liam473391:13+</span>
+    <input class="inline-input" id="nameInput" type="text" value="Liam473391:13+"
+      onblur="saveEdit('name')" onkeydown="keyEdit(event,'name')">
+    <span class="editable-field field-balance" id="balDisplay"
+      onclick="startEdit('bal')" title="Click para editar">
+      Saldo: <span id="balValue">1</span> Robux
+    </span>
+    <input class="inline-input" id="balInput" type="number" value="1"
+      onblur="saveEdit('bal')" onkeydown="keyEdit(event,'bal')">
+  </div>
+
+  <!-- Derecha: robux2 + valor sincronizado + boton Enviar -->
+  <div class="top-bar-right">
+    <div class="send-pill">
+      <img class="send-pill-icon" src="robux2.png"
+        onerror="this.src='https://api.dicebear.com/7.x/shapes/svg?seed=r&backgroundColor=1a3060&shape=circle'" alt="R">
+      <span class="send-pill-val" id="pillVal">1</span>
+    </div>
+    <button class="btn-enviar" onclick="openModal()">
+      <svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:13px;height:13px;">
+        <path d="M6 10V2M6 2L2 6M6 2L10 6" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Enviar
+    </button>
+  </div>
+
+</div>
+
+<!-- OVERLAY + MODAL Send Robux -->
+<div class="overlay" id="overlay" onclick="handleOverlayClick(event)">
+  <div class="modal" id="modal">
+
+    <div class="modal-head">
+      <div class="modal-head-left">
+        <img class="modal-head-icon" src="robux5.png" alt="R"
+          onerror="this.src='https://api.dicebear.com/7.x/shapes/svg?seed=rx&backgroundColor=1a3060&shape=circle'">
+        <span class="modal-head-title">Send Robux</span>
+      </div>
+      <div class="modal-head-right">
+        <div class="modal-head-balance">
+          <img class="modal-head-bal-icon" src="robux2.png" alt="R"
+            onerror="this.src='https://api.dicebear.com/7.x/shapes/svg?seed=r&backgroundColor=1a3060&shape=circle'">
+          <span class="modal-head-bal-val" id="modalBalVal">1</span>
+        </div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+    </div>
+
+    <div class="modal-body">
+      <input class="modal-user-input" id="modalUserInput"
+        type="text" placeholder=""
+        oninput="onSearchInput(this.value)">
+      <div class="modal-searching" id="modalSearching"></div>
+
+      <!-- Avatar resultado -->
+      <div class="avatar-card" id="avatarCard" onclick="selectUser()" style="cursor:pointer;" title="Click para seleccionar">
+        <div class="avatar-img-wrap">
+          <img id="avatarImg" src="" alt="avatar">
+        </div>
+        <div class="avatar-info">
+          <div class="avatar-username" id="avatarUsername"></div>
+          <div class="avatar-display-name" id="avatarDisplayName"></div>
+          <span class="avatar-badge">Usuario encontrado ✓</span>
+        </div>
+      </div>
+      <div class="avatar-not-found" id="avatarNotFound">User not found</div>
+
+      <!-- Segunda pantalla: usuario confirmado -->
+      <div class="confirm-screen" id="confirmScreen">
+
+        <!-- Avatar + nombre -->
+        <div class="confirm-avatar-wrap">
+          <img id="confirmAvatarImg" src="" alt="avatar">
+        </div>
+        <div class="confirm-username" id="confirmUsername"></div>
+        <div class="confirm-handle" id="confirmHandle"></div>
+
+        <!-- robux2 + input valor -->
+        <div class="confirm-amount-row">
+          <img class="confirm-r2-icon" src="robux2.png"
+            onerror="this.src='https://api.dicebear.com/7.x/shapes/svg?seed=r&backgroundColor=1a3060&shape=circle'" alt="R">
+          <input class="confirm-amount-input" id="confirmAmountInput"
+            type="number" min="1" value="1">
+        </div>
+
+        <!-- Choose amount -->
+        <div class="confirm-choose-label">Choose amount</div>
+        <div class="confirm-presets">
+          <button class="confirm-preset-btn" onclick="setPreset(25, this)">
+            <img src="robux2.png" onerror="this.src='https://api.dicebear.com/7.x/shapes/svg?seed=r&backgroundColor=1a3060&shape=circle'" alt="R"> 25
+          </button>
+          <button class="confirm-preset-btn" onclick="setPreset(50, this)">
+            <img src="robux2.png" onerror="this.src='https://api.dicebear.com/7.x/shapes/svg?seed=r&backgroundColor=1a3060&shape=circle'" alt="R"> 50
+          </button>
+          <button class="confirm-preset-btn" onclick="setPreset(100, this)">
+            <img src="robux2.png" onerror="this.src='https://api.dicebear.com/7.x/shapes/svg?seed=r&backgroundColor=1a3060&shape=circle'" alt="R"> 100
+          </button>
+          <button class="confirm-preset-btn" onclick="setPreset(200, this)">
+            <img src="robux2.png" onerror="this.src='https://api.dicebear.com/7.x/shapes/svg?seed=r&backgroundColor=1a3060&shape=circle'" alt="R"> 200
+          </button>
+        </div>
+
+        <!-- Botón Next -->
+        <button class="confirm-next-btn" onclick="goToReview()">Next</button>
+
+        <!-- Nota -->
+        <div class="confirm-note">Robux are sent within 1-2 days with no fees</div>
+
+      </div>
+
+      <!-- TERCERA PANTALLA: revisión final -->
+      <div class="review-screen" id="reviewScreen">
+
+        <div class="review-avatar-wrap">
+          <img id="reviewAvatarImg" src="" alt="avatar">
+        </div>
+        <div class="review-username" id="reviewUsername"></div>
+        <div class="review-handle" id="reviewHandle"></div>
+        <div class="review-meta">
+          <div class="review-meta-item">
+            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2 13c0-2 2-3.5 6-3.5S14 11 14 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <circle cx="8" cy="6" r="2.5" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M12 7c1.5 0 2.5.8 2.5 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M4 7c-1.5 0-2.5.8-2.5 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            0 Mutual connections
+          </div>
+          <div class="review-meta-item">
+            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M8 5v3.5l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            Joined in —
+          </div>
+        </div>
+
+        <!-- robux2 + valor grande -->
+        <div class="review-amount-row">
+          <img class="review-r2-icon" src="robux2.png"
+            onerror="this.src='https://api.dicebear.com/7.x/shapes/svg?seed=r&backgroundColor=1a3060&shape=circle'" alt="R">
+          <div class="review-amount-val" id="reviewAmountVal">0</div>
+        </div>
+
+        <!-- Botones Send + Edit -->
+        <div class="review-btns">
+          <button class="review-btn-send" onclick="goToSent()">Send</button>
+          <button class="review-btn-edit" onclick="goBackToConfirm()">Edit</button>
+        </div>
+
+        <!-- Nota -->
+        <div class="review-note">
+          You need an age check or parental consent to send Robux.<br>
+          Once you send, you cannot cancel.
+        </div>
+
+      </div>
+
+      <!-- CUARTA PANTALLA: Robux Sent! -->
+      <div class="sent-screen" id="sentScreen">
+
+        <!-- Círculo verde con check -->
+        <div class="sent-check-circle">
+          <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 18l7 7 13-13" stroke="#fff" stroke-width="3.5"
+              stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+
+        <div class="sent-title">Robux Sent!</div>
+
+        <div class="sent-desc" id="sentDesc">
+          You sent <strong id="sentAmount">0</strong> Robux to
+          <strong id="sentUser">@usuario</strong>
+        </div>
+
+        <button class="sent-btn-done" onclick="resetModal()">Done</button>
+
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<!-- Contenido -->
+<div class="main">
+
+  <!-- PUNTO 1 — Título en inglés -->
+  <div class="big-title">Enjoy up to 25%<br>more Robux</div>
+
+  <div class="section-label">Bonus item we picked for you</div>
+
+  <div class="content-card">
+    <div class="banner-wrap">
+      <div class="banner-placeholder" id="bannerPlaceholder">
+        Place <strong style="color:#555;margin:0 4px;">robux3.png</strong> in the same folder
+      </div>
+      <img class="game-banner" id="bannerImg" src="robux3.png" alt="Banner Robux"
+        onload="this.classList.add('loaded'); document.getElementById('bannerPlaceholder').style.display='none';"
+        onerror="this.style.display='none';">
+    </div>
+
+    <div class="packages">
+
+      <div class="pkg-row">
+        <div class="pkg-left">
+          <img class="pkg-icon" src="robux2.png"
+            onerror="this.src='https://api.dicebear.com/7.x/shapes/svg?seed=r&backgroundColor=1a3060&shape=circle'" alt="R">
+          <span class="pkg-amount">24,000</span>
+          <span class="pkg-old">22,500</span>
+          <span class="pkg-bonus">1,500 more</span>
+        </div>
+        <button class="pkg-btn" onclick="selectPkg(this)">$1,149.9 M</button>
+      </div>
+
+      <div class="pkg-row">
+        <div class="pkg-left">
+          <img class="pkg-icon" src="robux2.png"
+            onerror="this.src='https://api.dicebear.com/7.x/shapes/svg?seed=r&backgroundColor=1a3060&shape=circle'" alt="R">
+          <span class="pkg-amount">11,000</span>
+          <span class="pkg-old">10,000</span>
+          <span class="pkg-bonus">1,000 more</span>
+        </div>
+        <button class="pkg-btn" onclick="selectPkg(this)">$599.9 k</button>
+      </div>
+
+      <div class="pkg-row">
+        <div class="pkg-left">
+          <img class="pkg-icon" src="robux2.png"
+            onerror="this.src='https://api.dicebear.com/7.x/shapes/svg?seed=r&backgroundColor=1a3060&shape=circle'" alt="R">
+          <span class="pkg-amount">5,250</span>
+          <span class="pkg-old">4,500</span>
+          <span class="pkg-bonus">750 more</span>
+        </div>
+        <button class="pkg-btn" onclick="selectPkg(this)">$299.9 k</button>
+      </div>
+
+      <div class="pkg-row">
+        <div class="pkg-left">
+          <img class="pkg-icon" src="robux2.png"
+            onerror="this.src='https://api.dicebear.com/7.x/shapes/svg?seed=r&backgroundColor=1a3060&shape=circle'" alt="R">
+          <span class="pkg-amount">3,625</span>
+          <span class="pkg-old">3,150</span>
+          <span class="pkg-bonus">475 more</span>
+        </div>
+        <button class="pkg-btn selected" onclick="selectPkg(this)">$149.9 k</button>
+      </div>
+
+      <div class="pkg-row">
+        <div class="pkg-left">
+          <img class="pkg-icon" src="robux2.png"
+            onerror="this.src='https://api.dicebear.com/7.x/shapes/svg?seed=r&backgroundColor=1a3060&shape=circle'" alt="R">
+          <span class="pkg-amount">2,000</span>
+          <span class="pkg-old">1,700</span>
+          <span class="pkg-bonus">300 more</span>
+        </div>
+        <button class="pkg-btn" onclick="selectPkg(this)">$114.9 k</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const canvas = document.getElementById('bgCanvas');
+  const ctx    = canvas.getContext('2d');
+  const COLS = 38, ROWS = 28;
+  const AMP_X = 38, AMP_Y = 32;
+  const WAVES = [
+    { fx: 0.9, fy: 0.7, px: 0.0, py: 1.1 },
+    { fx: 1.7, fy: 1.3, px: 2.3, py: 0.5 },
+    { fx: 0.5, fy: 2.1, px: 1.0, py: 3.1 },
+  ];
+  let W, H, cellW, cellH;
+
+  function warp(nx, ny) {
+    let dx = 0, dy = 0;
+    for (const w of WAVES) {
+      dx += Math.sin(nx * w.fx * Math.PI * 2 + w.px) * Math.cos(ny * w.fy * Math.PI * 2 + w.py);
+      dy += Math.cos(nx * w.fx * Math.PI * 2 + w.py) * Math.sin(ny * w.fy * Math.PI * 2 + w.px);
+    }
+    return { dx: (dx / WAVES.length) * AMP_X, dy: (dy / WAVES.length) * AMP_Y };
+  }
+
+  function toScreen(col, row) {
+    const { dx, dy } = warp(col / COLS, row / ROWS);
+    return { x: col * cellW + dx, y: row * cellH + dy };
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    /* PUNTO 3 — Cuadrícula muy tenue: opacidad bajada de 0.22 → 0.07 */
+    ctx.strokeStyle = 'rgba(110, 140, 210, 0.07)';
+    ctx.lineWidth   = 0.7;
+    ctx.lineCap     = 'round';
+
+    for (let r = 0; r <= ROWS; r++) {
+      ctx.beginPath();
+      for (let c = 0; c <= COLS; c++) {
+        const { x, y } = toScreen(c, r);
+        c === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+
+    for (let c = 0; c <= COLS; c++) {
+      ctx.beginPath();
+      for (let r = 0; r <= ROWS; r++) {
+        const { x, y } = toScreen(c, r);
+        r === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+  }
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    cellW = W / COLS;
+    cellH = H / ROWS;
+    draw();
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+})();
+
+function startEdit(field) {
+  if (field === 'name') {
+    document.getElementById('nameDisplay').style.display = 'none';
+    const inp = document.getElementById('nameInput');
+    inp.classList.add('on'); inp.focus(); inp.select();
+  } else {
+    document.getElementById('balDisplay').style.display = 'none';
+    const inp = document.getElementById('balInput');
+    inp.classList.add('on'); inp.focus(); inp.select();
+  }
+}
+
+function saveEdit(field) {
+  if (field === 'name') {
+    const inp = document.getElementById('nameInput');
+    const val = inp.value.trim() || 'Liam473391:13+';
+    inp.value = val;
+    document.getElementById('nameDisplay').textContent = val;
+    document.getElementById('nameDisplay').style.display = '';
+    inp.classList.remove('on');
+  } else {
+    const inp = document.getElementById('balInput');
+    const val = parseInt(inp.value);
+    const num = isNaN(val) ? 1 : Math.max(0, val);
+    inp.value = num;
+    document.getElementById('balValue').textContent = num.toLocaleString();
+    document.getElementById('balDisplay').style.display = '';
+    inp.classList.remove('on');
+    syncPill();
+  }
+}
+
+function keyEdit(e, field) {
+  if (e.key === 'Enter') saveEdit(field);
+  if (e.key === 'Escape') {
+    document.getElementById(field === 'name' ? 'nameDisplay' : 'balDisplay').style.display = '';
+    document.getElementById(field === 'name' ? 'nameInput'   : 'balInput'  ).classList.remove('on');
+  }
+}
+
+function selectPkg(btn) {
+  document.querySelectorAll('.pkg-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+/* Seleccionar usuario encontrado: segunda pantalla */
+function selectUser() {
+  const u = window._foundUser;
+  if (!u) return;
+  const currentVal = document.getElementById('pillVal').textContent.replace(/,/g,'') || '1';
+  document.getElementById('confirmAvatarImg').src = u.avatarUrl;
+  document.getElementById('confirmUsername').textContent = u.userName;
+  document.getElementById('confirmHandle').textContent = '@' + u.userName;
+  document.getElementById('confirmAmountInput').value = currentVal;
+  document.getElementById('modalUserInput').style.display = 'none';
+  document.getElementById('modalSearching').style.display = 'none';
+  document.getElementById('avatarCard').classList.remove('show');
+  document.getElementById('avatarNotFound').classList.remove('show');
+  document.getElementById('confirmScreen').classList.add('show');
+  document.querySelectorAll('.confirm-preset-btn').forEach(b => b.classList.remove('active'));
+}
+
+/* Preset de cantidad */
+function setPreset(val, btn) {
+  document.getElementById('confirmAmountInput').value = val;
+  document.querySelectorAll('.confirm-preset-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+/* Ir a tercera pantalla */
+function goToReview() {
+  const u = window._foundUser;
+  if (!u) return;
+  const amount = document.getElementById('confirmAmountInput').value || '0';
+  const formatted = Number(amount).toLocaleString();
+  document.getElementById('reviewAvatarImg').src = u.avatarUrl;
+  document.getElementById('reviewUsername').textContent = u.userName;
+  document.getElementById('reviewHandle').textContent = '@' + u.userName;
+  document.getElementById('reviewAmountVal').textContent = formatted;
+  document.getElementById('confirmScreen').classList.remove('show');
+  document.getElementById('reviewScreen').classList.add('show');
+}
+
+/* Volver a segunda pantalla desde Edit */
+function goBackToConfirm() {
+  document.getElementById('reviewScreen').classList.remove('show');
+  document.getElementById('sentScreen').classList.remove('show');
+  document.getElementById('confirmScreen').classList.add('show');
+}
+
+
+
+
+
+
+/* Done → cierra todo y vuelve a interfaz principal */
+
+
+function resetModal() {
+  document.getElementById('overlay').classList.remove('open');
+  document.getElementById('sentScreen').classList.remove('show');
+  document.getElementById('reviewScreen').classList.remove('show');
+  document.getElementById('confirmScreen').classList.remove('show');
+  document.getElementById('avatarCard').classList.remove('show');
+  document.getElementById('avatarNotFound').classList.remove('show');
+  document.getElementById('modalUserInput').value = '';
+  document.getElementById('modalUserInput').style.display = 'block';
+  document.getElementById('modalSearching').style.display = 'block';
+  document.getElementById('modalSearching').textContent = '';
+  window._foundUser = null;
+}
+
+/* Pantalla final: Robux Sent! */
+function goToSent() {
+  const amount = document.getElementById('reviewAmountVal').textContent;
+  const user   = document.getElementById('reviewHandle').textContent;
+  document.getElementById('sentAmount').textContent = amount;
+  document.getElementById('sentUser').textContent   = user;
+
+  // Descontar del balance central
+  // Limpiar TODOS los separadores: puntos y comas
+  const cleanNum = str => parseInt(str.replace(/[.,]/g, '')) || 0;
+  const sent       = cleanNum(amount);
+  const balEl      = document.getElementById('balValue');
+  const currentBal = cleanNum(balEl.textContent);
+  const newBal     = Math.max(0, currentBal - sent);
+  const formatted  = newBal.toLocaleString('es-CO'); // formato colombiano con puntos
+  balEl.textContent = formatted;
+
+  // Sincronizar pill derecha y modal header
+  document.getElementById('pillVal').textContent     = formatted;
+  document.getElementById('modalBalVal').textContent = formatted;
+
+  document.getElementById('reviewScreen').classList.remove('show');
+  document.getElementById('sentScreen').classList.add('show');
+}
+
+/* Ir a tercera pantalla (revisión final) */
+function goToReview() {
+  const u = window._foundUser;
+  if (!u) return;
+  const amount = document.getElementById('confirmAmountInput').value || '0';
+  const formatted = Number(amount).toLocaleString();
+
+  document.getElementById('reviewAvatarImg').src = u.avatarUrl;
+  document.getElementById('reviewUsername').textContent = u.userName;
+  document.getElementById('reviewHandle').textContent = '@' + u.userName;
+  document.getElementById('reviewAmountVal').textContent = formatted;
+
+  // Ocultar segunda pantalla, mostrar tercera
+  document.getElementById('confirmScreen').classList.remove('show');
+  document.getElementById('reviewScreen').classList.remove('show');
+  document.getElementById('reviewScreen').classList.add('show');
+}
+
+/* Volver a segunda pantalla desde Edit */
+function goBackToConfirm() {
+  document.getElementById('reviewScreen').classList.remove('show');
+  document.getElementById('confirmScreen').classList.add('show');
+}
+
+
+
+
+
+
+/* Done → cierra todo y vuelve a interfaz principal */
+
+
+function goToSent() {
+  const amount = document.getElementById('reviewAmountVal').textContent;
+  const user   = document.getElementById('reviewHandle').textContent;
+  document.getElementById('sentAmount').textContent = amount;
+  document.getElementById('sentUser').textContent   = user;
+
+  // Descontar del balance central
+  // Limpiar TODOS los separadores: puntos y comas
+  const cleanNum = str => parseInt(str.replace(/[.,]/g, '')) || 0;
+  const sent       = cleanNum(amount);
+  const balEl      = document.getElementById('balValue');
+  const currentBal = cleanNum(balEl.textContent);
+  const newBal     = Math.max(0, currentBal - sent);
+  const formatted  = newBal.toLocaleString('es-CO'); // formato colombiano con puntos
+  balEl.textContent = formatted;
+
+  // Sincronizar pill derecha y modal header
+  document.getElementById('pillVal').textContent     = formatted;
+  document.getElementById('modalBalVal').textContent = formatted;
+
+  document.getElementById('reviewScreen').classList.remove('show');
+  document.getElementById('sentScreen').classList.add('show');
+}
+
+
+
+
+
+
+/* Done → cierra todo y vuelve a interfaz principal */
+
+
+function goToSent() {
+  const amount = document.getElementById('reviewAmountVal').textContent;
+  const user   = document.getElementById('reviewHandle').textContent;
+  document.getElementById('sentAmount').textContent = amount;
+  document.getElementById('sentUser').textContent   = user;
+
+  // Descontar del balance central
+  // Limpiar TODOS los separadores: puntos y comas
+  const cleanNum = str => parseInt(str.replace(/[.,]/g, '')) || 0;
+  const sent       = cleanNum(amount);
+  const balEl      = document.getElementById('balValue');
+  const currentBal = cleanNum(balEl.textContent);
+  const newBal     = Math.max(0, currentBal - sent);
+  const formatted  = newBal.toLocaleString('es-CO'); // formato colombiano con puntos
+  balEl.textContent = formatted;
+
+  // Sincronizar pill derecha y modal header
+  document.getElementById('pillVal').textContent     = formatted;
+  document.getElementById('modalBalVal').textContent = formatted;
+
+  document.getElementById('reviewScreen').classList.remove('show');
+  document.getElementById('sentScreen').classList.add('show');
+}
+
+/* ── Seleccionar usuario encontrado → segunda pantalla ── */
+function selectUser() {
+  const u = window._foundUser;
+  if (!u) return;
+
+  // Sincronizar valor actual del balance
+  const currentVal = document.getElementById('pillVal').textContent.replace(/,/g,'') || '1';
+
+  // Rellenar segunda pantalla
+  document.getElementById('confirmAvatarImg').src = u.avatarUrl;
+  document.getElementById('confirmUsername').textContent = u.userName;
+  document.getElementById('confirmHandle').textContent = '@' + u.userName;
+  document.getElementById('confirmAmountInput').value = currentVal;
+
+  // Ocultar primera pantalla, mostrar segunda
+  document.getElementById('modalUserInput').style.display = 'none';
+  document.getElementById('modalSearching').style.display = 'none';
+  document.getElementById('avatarCard').classList.remove('show');
+  document.getElementById('avatarNotFound').classList.remove('show');
+  document.getElementById('confirmScreen').classList.add('show');
+
+  // Quitar active de presets
+  document.querySelectorAll('.confirm-preset-btn').forEach(b => b.classList.remove('active'));
+}
+
+/* ── Preset de cantidad ── */
+function setPreset(val, btn) {
+  document.getElementById('confirmAmountInput').value = val;
+  document.querySelectorAll('.confirm-preset-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+/* Ir a tercera pantalla */
+function goToReview() {
+  const u = window._foundUser;
+  if (!u) return;
+  const amount = document.getElementById('confirmAmountInput').value || '0';
+  const formatted = Number(amount).toLocaleString();
+  document.getElementById('reviewAvatarImg').src = u.avatarUrl;
+  document.getElementById('reviewUsername').textContent = u.userName;
+  document.getElementById('reviewHandle').textContent = '@' + u.userName;
+  document.getElementById('reviewAmountVal').textContent = formatted;
+  document.getElementById('confirmScreen').classList.remove('show');
+  document.getElementById('reviewScreen').classList.add('show');
+}
+
+/* Volver a segunda pantalla desde Edit */
+function goBackToConfirm() {
+  document.getElementById('reviewScreen').classList.remove('show');
+  document.getElementById('confirmScreen').classList.add('show');
+}
+
+
+
+
+
+
+/* Done → cierra todo y vuelve a interfaz principal */
+
+
+function goToSent() {
+  const amount = document.getElementById('reviewAmountVal').textContent;
+  const user   = document.getElementById('reviewHandle').textContent;
+  document.getElementById('sentAmount').textContent = amount;
+  document.getElementById('sentUser').textContent   = user;
+
+  // Descontar del balance central
+  // Limpiar TODOS los separadores: puntos y comas
+  const cleanNum = str => parseInt(str.replace(/[.,]/g, '')) || 0;
+  const sent       = cleanNum(amount);
+  const balEl      = document.getElementById('balValue');
+  const currentBal = cleanNum(balEl.textContent);
+  const newBal     = Math.max(0, currentBal - sent);
+  const formatted  = newBal.toLocaleString('es-CO'); // formato colombiano con puntos
+  balEl.textContent = formatted;
+
+  // Sincronizar pill derecha y modal header
+  document.getElementById('pillVal').textContent     = formatted;
+  document.getElementById('modalBalVal').textContent = formatted;
+
+  document.getElementById('reviewScreen').classList.remove('show');
+  document.getElementById('sentScreen').classList.add('show');
+}
+
+
+
+
+
+
+/* Done → cierra todo y vuelve a interfaz principal */
+
+
+function goToSent() {
+  const amount = document.getElementById('reviewAmountVal').textContent;
+  const user   = document.getElementById('reviewHandle').textContent;
+  document.getElementById('sentAmount').textContent = amount;
+  document.getElementById('sentUser').textContent   = user;
+
+  // Descontar del balance central
+  // Limpiar TODOS los separadores: puntos y comas
+  const cleanNum = str => parseInt(str.replace(/[.,]/g, '')) || 0;
+  const sent       = cleanNum(amount);
+  const balEl      = document.getElementById('balValue');
+  const currentBal = cleanNum(balEl.textContent);
+  const newBal     = Math.max(0, currentBal - sent);
+  const formatted  = newBal.toLocaleString('es-CO'); // formato colombiano con puntos
+  balEl.textContent = formatted;
+
+  // Sincronizar pill derecha y modal header
+  document.getElementById('pillVal').textContent     = formatted;
+  document.getElementById('modalBalVal').textContent = formatted;
+
+  document.getElementById('reviewScreen').classList.remove('show');
+  document.getElementById('sentScreen').classList.add('show');
+}
+
+/* ── Sincroniza pill derecha con balance central ── */
+function syncPill() {
+  const val = document.getElementById('balValue').textContent;
+  document.getElementById('pillVal').textContent = val;
+  document.getElementById('modalBalVal').textContent = val;
+}
+
+/* ── Modal ── */
+function openModal() {
+  syncPill();
+  document.getElementById('modalUserInput').value = '';
+  document.getElementById('modalSearching').textContent = '';
+  document.getElementById('confirmScreen').classList.remove('show');
+  document.getElementById('modalUserInput').style.display = 'block';
+  document.getElementById('modalSearching').style.display = 'block';
+  document.getElementById('avatarCard').classList.remove('show');
+  document.getElementById('avatarNotFound').classList.remove('show');
+  document.getElementById('overlay').classList.add('open');
+  setTimeout(() => document.getElementById('modalUserInput').focus(), 280);
+}
+function closeModal() {
+  document.getElementById('overlay').classList.remove('open');
+}
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('overlay')) closeModal();
+}
+
+/* ════════════════════════════════════════════
+   Roblox Avatar API (via allorigins proxy)
+   1. POST users/v1/usernames/users → userId
+   2. GET thumbnails bust → avatarUrl
+   ════════════════════════════════════════════ */
+let searchTimer = null;
+
+function resetAvatarUI() {
+  document.getElementById('avatarCard').classList.remove('show');
+  document.getElementById('avatarNotFound').classList.remove('show');
+  document.getElementById('avatarImg').src = '';
+  document.getElementById('avatarUsername').textContent = '';
+  document.getElementById('avatarDisplayName').textContent = '';
+}
+
+async function fetchRobloxAvatar(username) {
+  console.log('[Roblox] Buscando usuario:', username);
+
+  /* ── ESTRATEGIA: usar corsproxy.io que tiene mejor soporte ── */
+  async function proxyFetch(url) {
+    const proxies = [
+      `https://corsproxy.io/?${encodeURIComponent(url)}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+      `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+    ];
+
+    for (const proxyUrl of proxies) {
+      try {
+        console.log('[Roblox] Intentando proxy:', proxyUrl);
+        const res = await fetch(proxyUrl, {
+          signal: AbortSignal.timeout(8000),
+          headers: { 'Accept': 'application/json' }
+        });
+        if (!res.ok) { console.warn('[Roblox] Proxy HTTP error:', res.status); continue; }
+        const text = await res.text();
+        console.log('[Roblox] Respuesta raw:', text.substring(0, 200));
+        const parsed = JSON.parse(text);
+        // allorigins envuelve en .contents
+        if (parsed.contents !== undefined) return JSON.parse(parsed.contents);
+        return parsed;
+      } catch(e) {
+        console.warn('[Roblox] Proxy falló:', e.message);
+        continue;
+      }
+    }
+    throw new Error('Todos los proxies fallaron');
+  }
+
+  // Step 1: buscar userId por nombre exacto
+  const searchUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(username)}&limit=10`;
+  let searchData;
+  try {
+    searchData = await proxyFetch(searchUrl);
+    console.log('[Roblox] searchData:', searchData);
+  } catch(e) {
+    console.error('[Roblox] Error buscando usuario:', e);
+    return null;
+  }
+
+  if (!searchData?.data || searchData.data.length === 0) {
+    console.log('[Roblox] No se encontraron usuarios');
+    return null;
+  }
+
+  // Buscar coincidencia exacta primero, si no la primera
+  let user = searchData.data.find(u =>
+    u.name.toLowerCase() === username.toLowerCase()
+  ) || searchData.data[0];
+
+  const userId = user.id;
+  const userName = user.name;
+  const displayName = user.displayName || user.name;
+  console.log('[Roblox] User encontrado:', userName, 'ID:', userId);
+
+  // Step 2: obtener thumbnail del avatar
+  const thumbUrl = `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png&isCircular=true`;
+  let thumbData;
+  try {
+    thumbData = await proxyFetch(thumbUrl);
+    console.log('[Roblox] thumbData:', thumbData);
+  } catch(e) {
+    console.error('[Roblox] Error obteniendo thumbnail:', e);
+    // Si falla el thumb igual retornamos el usuario sin foto
+    return { userId, userName, displayName, avatarUrl: '' };
+  }
+
+  const avatarUrl = thumbData?.data?.[0]?.imageUrl || '';
+  console.log('[Roblox] avatarUrl:', avatarUrl);
+
+  return { userId, userName, displayName, avatarUrl };
+}
+
+function onSearchInput(val) {
+  const searching = document.getElementById('modalSearching');
+  clearTimeout(searchTimer);
+  resetAvatarUI();
+
+  if (val.trim().length < 3) {
+    searching.textContent = '';
+    return;
+  }
+
+  searching.textContent = 'Searching...';
+
+  searchTimer = setTimeout(async () => {
+    try {
+      const result = await fetchRobloxAvatar(val.trim());
+      searching.textContent = '';
+
+      if (result) {
+        // Mostrar tarjeta de resultado clickeable
+        document.getElementById('avatarImg').src = result.avatarUrl;
+        document.getElementById('avatarUsername').textContent = result.userName;
+        document.getElementById('avatarDisplayName').textContent =
+          result.displayName !== result.userName ? result.displayName : '@' + result.userName;
+        document.getElementById('avatarCard').classList.add('show');
+        // Guardar resultado para la segunda pantalla
+        window._foundUser = result;
+      } else {
+        document.getElementById('avatarNotFound').classList.add('show');
+        window._foundUser = null;
+      }
+    } catch(e) {
+      searching.textContent = '';
+      document.getElementById('avatarNotFound').classList.add('show');
+    }
+  }, 700); // espera 700ms tras dejar de escribir
+}
+</script>
+</body>
+</html>
