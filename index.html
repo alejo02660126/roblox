@@ -1457,6 +1457,9 @@ const PUBLIC_PROXIES = [
 
 const PROXY_TIMEOUT = 15000;
 
+// Intentos ante el 429 de Roblox: el original mas 3 reintentos.
+const REINTENTOS_429 = 4;
+
 const AVATAR_FALLBACK =
   'https://api.dicebear.com/7.x/shapes/svg?seed=r&backgroundColor=1a3060&shape=circle';
 
@@ -1471,12 +1474,35 @@ function resetAvatarUI() {
 
 async function fetchRobloxAvatar(username) {
   console.log('[Roblox] Buscando usuario:', username);
+  // Si el usuario sigue escribiendo, esta busqueda deja de importar y
+  // cortamos los reintentos en vez de seguir gastando peticiones.
+  const miSeq = searchSeq;
 
   /* Lanza todos los proxies A LA VEZ y se queda con el primero que
      conteste bien. Antes se probaban en serie con timeout de 8s, y
      como allorigins tarda entre 8 y 22s se abortaba practicamente
      siempre antes de recibir nada. */
+  /* Reintenta ante el 429 de Roblox. Va aqui, y no envolviendo la
+     busqueda entera, porque el avatar se pide por separado: antes solo
+     se reintentaba el nombre y el thumbnail se rendia al primer 429,
+     dejando la tarjeta con el avatar de relleno.
+     Cada reintento es una peticion nueva al Worker, que es lo unico que
+     sirve: los reintentos de dentro del Worker reusan la misma IP ya
+     estrangulada y fallan siempre. */
   async function proxyFetch(url, opciones = {}) {
+    for (let intento = 0; intento < REINTENTOS_429; intento++) {
+      try {
+        return await unIntento(url, opciones);
+      } catch(e) {
+        const ultimo = intento === REINTENTOS_429 - 1;
+        if (e.message !== 'LIMITE' || ultimo || miSeq !== searchSeq) throw e;
+        console.log(`[Roblox] 429, reintento ${intento + 1} de ${REINTENTOS_429 - 1}`);
+        await new Promise(r => setTimeout(r, 600 * (intento + 1)));
+      }
+    }
+  }
+
+  async function unIntento(url, opciones = {}) {
     // Los proxies publicos solo hacen GET. El POST necesita el Worker.
     if (opciones.method === 'POST' && !WORKER_PROXY) throw new Error('CONEXION');
 
@@ -1580,25 +1606,6 @@ async function fetchRobloxAvatar(username) {
   return { userId, userName, displayName, avatarUrl };
 }
 
-/* Roblox estrangula el rango de IPs de Cloudflare y devuelve 429 de
-   forma intermitente. Medido contra el Worker: reintentar por dentro no
-   sirve (misma conexion, misma IP bloqueada), pero repetir la peticion
-   entera cae en otra invocacion y suele pasar. Con 4 intentos se
-   resolvieron 7 de 8 nombres que fallaban a la primera. */
-async function buscarConReintentos(username, cancelado) {
-  const INTENTOS = 4;
-  for (let i = 0; i < INTENTOS; i++) {
-    try {
-      return await fetchRobloxAvatar(username);
-    } catch(e) {
-      if (e.message !== 'LIMITE' || i === INTENTOS - 1) throw e;
-      console.log(`[Roblox] 429, reintento ${i + 1} de ${INTENTOS - 1}`);
-      await new Promise(r => setTimeout(r, 600 * (i + 1)));
-      if (cancelado()) return null;
-    }
-  }
-}
-
 function onSearchInput(val) {
   const searching = document.getElementById('modalSearching');
   clearTimeout(searchTimer);
@@ -1617,7 +1624,7 @@ function onSearchInput(val) {
     // puede pisar el resultado bueno de "alejo".
     const miSeq = ++searchSeq;
     try {
-      const result = await buscarConReintentos(val.trim(), () => miSeq !== searchSeq);
+      const result = await fetchRobloxAvatar(val.trim());
       if (miSeq !== searchSeq) return;
       searching.textContent = '';
 
