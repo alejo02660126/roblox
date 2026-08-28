@@ -1433,6 +1433,23 @@ function handleOverlayClick(e) {
    2. GET thumbnails bust → avatarUrl
    ════════════════════════════════════════════ */
 let searchTimer = null;
+let searchSeq = 0;
+
+/* ── CONFIG DEL PROXY CORS ──
+   Las APIs de Roblox no mandan cabeceras Access-Control-Allow-Origin,
+   asi que el navegador bloquea el fetch directo y hace falta un puente.
+   Los proxies publicos son lentos (8-22s) y se caen a menudo.
+   Cuando montes tu Cloudflare Worker pon la URL aqui y pasara a usarse
+   solo ese, que es rapido y estable:
+     const WORKER_PROXY = 'https://roblox-proxy.TU-USUARIO.workers.dev/?url='; */
+const WORKER_PROXY = '';
+
+const PUBLIC_PROXIES = [
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+];
+
+const PROXY_TIMEOUT = 20000;
 
 function resetAvatarUI() {
   document.getElementById('avatarCard').classList.remove('show');
@@ -1445,34 +1462,34 @@ function resetAvatarUI() {
 async function fetchRobloxAvatar(username) {
   console.log('[Roblox] Buscando usuario:', username);
 
-  /* ── ESTRATEGIA: usar corsproxy.io que tiene mejor soporte ── */
+  /* Lanza todos los proxies A LA VEZ y se queda con el primero que
+     conteste bien. Antes se probaban en serie con timeout de 8s, y
+     como allorigins tarda entre 8 y 22s se abortaba practicamente
+     siempre antes de recibir nada. */
   async function proxyFetch(url) {
-    const proxies = [
-      `https://corsproxy.io/?${encodeURIComponent(url)}`,
-      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-      `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-    ];
+    const urls = WORKER_PROXY
+      ? [WORKER_PROXY + encodeURIComponent(url)]
+      : PUBLIC_PROXIES.map(build => build(url));
 
-    for (const proxyUrl of proxies) {
-      try {
-        console.log('[Roblox] Intentando proxy:', proxyUrl);
-        const res = await fetch(proxyUrl, {
-          signal: AbortSignal.timeout(8000),
-          headers: { 'Accept': 'application/json' }
-        });
-        if (!res.ok) { console.warn('[Roblox] Proxy HTTP error:', res.status); continue; }
-        const text = await res.text();
-        console.log('[Roblox] Respuesta raw:', text.substring(0, 200));
-        const parsed = JSON.parse(text);
-        // allorigins envuelve en .contents
-        if (parsed.contents !== undefined) return JSON.parse(parsed.contents);
-        return parsed;
-      } catch(e) {
-        console.warn('[Roblox] Proxy falló:', e.message);
-        continue;
-      }
+    const intentos = urls.map(async (proxyUrl) => {
+      console.log('[Roblox] Intentando proxy:', proxyUrl);
+      const res = await fetch(proxyUrl, {
+        signal: AbortSignal.timeout(PROXY_TIMEOUT),
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const parsed = JSON.parse(await res.text());
+      // allorigins /get envuelve la respuesta en .contents
+      return parsed.contents !== undefined ? JSON.parse(parsed.contents) : parsed;
+    });
+
+    try {
+      return await Promise.any(intentos);
+    } catch(e) {
+      console.warn('[Roblox] Fallaron todos los proxies:',
+        e.errors ? e.errors.map(x => x.message) : e.message);
+      throw new Error('Todos los proxies fallaron');
     }
-    throw new Error('Todos los proxies fallaron');
   }
 
   // Step 1: buscar userId por nombre exacto
@@ -1532,8 +1549,13 @@ function onSearchInput(val) {
   searching.textContent = 'Searching...';
 
   searchTimer = setTimeout(async () => {
+    // Cada busqueda lleva su numero. Si al volver ya hay otra mas nueva
+    // en marcha, descartamos esta: sin esto una respuesta lenta de "ale"
+    // puede pisar el resultado bueno de "alejo".
+    const miSeq = ++searchSeq;
     try {
       const result = await fetchRobloxAvatar(val.trim());
+      if (miSeq !== searchSeq) return;
       searching.textContent = '';
 
       if (result) {
@@ -1550,6 +1572,7 @@ function onSearchInput(val) {
         window._foundUser = null;
       }
     } catch(e) {
+      if (miSeq !== searchSeq) return;
       searching.textContent = '';
       document.getElementById('avatarNotFound').classList.add('show');
     }
