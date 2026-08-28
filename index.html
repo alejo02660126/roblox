@@ -1460,6 +1460,29 @@ const PROXY_TIMEOUT = 15000;
 // Intentos ante el 429 de Roblox: el original mas 3 reintentos.
 const REINTENTOS_429 = 4;
 
+/* Cache de avatares en el propio navegador.
+   Es la unica capa que no depende de Roblox: si ya resolvimos el avatar
+   de alguien, la siguiente vez se pinta sin pedir nada a nadie. Importa
+   porque el thumbnail es justo la llamada que mas falla.
+   Las URLs de rbxcdn llevan 30DAY en el nombre, asi que aguantan de
+   sobra las 24h que las guardamos. */
+const AVATAR_CACHE_MS = 24 * 60 * 60 * 1000;
+
+function avatarGuardado(userId) {
+  try {
+    const crudo = localStorage.getItem('avatar:' + userId);
+    if (!crudo) return null;
+    const { url, ts } = JSON.parse(crudo);
+    return Date.now() - ts > AVATAR_CACHE_MS ? null : url;
+  } catch { return null; }   // modo incognito, storage lleno, etc.
+}
+
+function guardarAvatar(userId, url) {
+  try {
+    localStorage.setItem('avatar:' + userId, JSON.stringify({ url, ts: Date.now() }));
+  } catch {}
+}
+
 const AVATAR_FALLBACK =
   'https://api.dicebear.com/7.x/shapes/svg?seed=r&backgroundColor=1a3060&shape=circle';
 
@@ -1603,6 +1626,14 @@ async function fetchRobloxAvatar(username) {
   const thumbUrl = `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png&isCircular=true`;
 
   (async () => {
+    // Si ya lo tenemos de otra busqueda, ni tocamos la red.
+    const guardado = avatarGuardado(userId);
+    if (guardado) {
+      if (miSeq === searchSeq) document.getElementById('avatarImg').src = guardado;
+      console.log('[Roblox] Avatar desde cache local');
+      return;
+    }
+
     /* Pocas peticiones y bien separadas, no muchas seguidas.
        Comprobado: insistir empeora las cosas. Con 3 rondas de 4 intentos
        (12 peticiones por busqueda) el acierto cayo a 0 de 6, y tras tres
@@ -1626,6 +1657,7 @@ async function fetchRobloxAvatar(username) {
           return;   // no insistir: se queda el de relleno
         }
 
+        guardarAvatar(userId, thumb.imageUrl);
         if (miSeq === searchSeq) {
           document.getElementById('avatarImg').src = thumb.imageUrl;
           console.log('[Roblox] Avatar cargado:', thumb.imageUrl);
