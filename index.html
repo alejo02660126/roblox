@@ -786,7 +786,8 @@ body {
       <!-- Avatar resultado -->
       <div class="avatar-card" id="avatarCard" onclick="selectUser()" style="cursor:pointer;" title="Click para seleccionar">
         <div class="avatar-img-wrap">
-          <img id="avatarImg" src="" alt="avatar">
+          <img id="avatarImg" src="" alt="avatar"
+            onerror="this.src='https://api.dicebear.com/7.x/shapes/svg?seed=r&backgroundColor=1a3060&shape=circle'">
         </div>
         <div class="avatar-info">
           <div class="avatar-username" id="avatarUsername"></div>
@@ -1456,6 +1457,9 @@ const PUBLIC_PROXIES = [
 
 const PROXY_TIMEOUT = 15000;
 
+const AVATAR_FALLBACK =
+  'https://api.dicebear.com/7.x/shapes/svg?seed=r&backgroundColor=1a3060&shape=circle';
+
 function resetAvatarUI() {
   document.getElementById('avatarCard').classList.remove('show');
   document.getElementById('avatarNotFound').classList.remove('show');
@@ -1568,7 +1572,8 @@ function onSearchInput(val) {
 
       if (result) {
         // Mostrar tarjeta de resultado clickeable
-        document.getElementById('avatarImg').src = result.avatarUrl;
+        document.getElementById('avatarImg').src =
+          result.avatarUrl || AVATAR_FALLBACK;
         document.getElementById('avatarUsername').textContent = result.userName;
         document.getElementById('avatarDisplayName').textContent =
           result.displayName !== result.userName ? result.displayName : '@' + result.userName;
