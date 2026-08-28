@@ -36,10 +36,15 @@ const CORS = {
 const REINTENTOS = 1;
 const ESPERA_BASE = 200;
 
-// Cuanto guardamos una respuesta buena. Los nombres y avatares de Roblox
-// no cambian de un minuto a otro, y cachear es lo que de verdad evita
-// los 429: la mayoria de busquedas repetidas ni llegan a Roblox.
-const CACHE_SEGUNDOS = 600;
+/* Cuanto guardamos una respuesta buena.
+   24 horas, y no 10 minutos, porque medido en la pagina publicada el
+   bloqueo de Roblox dura decenas de segundos: fallaron tres busquedas
+   seguidas a lo largo de medio minuto. Contra eso reintentar no sirve,
+   pero cachear si: una vez que un nombre se resuelve bien, deja de
+   depender de Roblox durante un dia entero.
+   El id de un usuario no cambia nunca y su avatar casi nunca, asi que
+   guardarlo 24h no arriesga a mostrar nada desactualizado. */
+const CACHE_SEGUNDOS = 86400;
 
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
