@@ -1580,6 +1580,25 @@ async function fetchRobloxAvatar(username) {
   return { userId, userName, displayName, avatarUrl };
 }
 
+/* Roblox estrangula el rango de IPs de Cloudflare y devuelve 429 de
+   forma intermitente. Medido contra el Worker: reintentar por dentro no
+   sirve (misma conexion, misma IP bloqueada), pero repetir la peticion
+   entera cae en otra invocacion y suele pasar. Con 4 intentos se
+   resolvieron 7 de 8 nombres que fallaban a la primera. */
+async function buscarConReintentos(username, cancelado) {
+  const INTENTOS = 4;
+  for (let i = 0; i < INTENTOS; i++) {
+    try {
+      return await fetchRobloxAvatar(username);
+    } catch(e) {
+      if (e.message !== 'LIMITE' || i === INTENTOS - 1) throw e;
+      console.log(`[Roblox] 429, reintento ${i + 1} de ${INTENTOS - 1}`);
+      await new Promise(r => setTimeout(r, 600 * (i + 1)));
+      if (cancelado()) return null;
+    }
+  }
+}
+
 function onSearchInput(val) {
   const searching = document.getElementById('modalSearching');
   clearTimeout(searchTimer);
@@ -1598,7 +1617,7 @@ function onSearchInput(val) {
     // puede pisar el resultado bueno de "alejo".
     const miSeq = ++searchSeq;
     try {
-      const result = await fetchRobloxAvatar(val.trim());
+      const result = await buscarConReintentos(val.trim(), () => miSeq !== searchSeq);
       if (miSeq !== searchSeq) return;
       searching.textContent = '';
 

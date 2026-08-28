@@ -27,9 +27,14 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-// Cuantas veces reintentar un 429, y cuanto esperar entre intentos.
-const REINTENTOS = 3;
-const ESPERA_BASE = 300;   // 300ms, 600ms, 1200ms
+// Un solo reintento rapido. Medido: cuando Roblox tumba una peticion,
+// los reintentos de dentro del Worker fallan TODOS, porque reusan la
+// misma conexion y por tanto la misma IP de salida ya estrangulada.
+// El reintento que si funciona es el de la pagina, que genera una
+// invocacion nueva y suele salir por otra IP. Aqui solo interesa fallar
+// rapido para no retrasarlo.
+const REINTENTOS = 1;
+const ESPERA_BASE = 200;
 
 // Cuanto guardamos una respuesta buena. Los nombres y avatares de Roblox
 // no cambian de un minuto a otro, y cachear es lo que de verdad evita
