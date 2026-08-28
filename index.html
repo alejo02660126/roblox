@@ -1445,15 +1445,21 @@ let searchSeq = 0;
 const WORKER_PROXY = '';
 
 const PUBLIC_PROXIES = [
+  // Estos dos responden en ~700ms pero limitan por IP muy rapido (429),
+  // asi que suelen servir para la primera busqueda y poco mas.
+  (u) => `https://cors.eu.org/${u}`,
+  (u) => `https://proxy.cors.sh/${u}`,
+  // Lento (7-22s) e intermitente, pero a veces es el unico que contesta.
   (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
   (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
 ];
 
-const PROXY_TIMEOUT = 20000;
+const PROXY_TIMEOUT = 15000;
 
 function resetAvatarUI() {
   document.getElementById('avatarCard').classList.remove('show');
   document.getElementById('avatarNotFound').classList.remove('show');
+  document.getElementById('avatarNotFound').textContent = 'User not found';
   document.getElementById('avatarImg').src = '';
   document.getElementById('avatarUsername').textContent = '';
   document.getElementById('avatarDisplayName').textContent = '';
@@ -1499,8 +1505,10 @@ async function fetchRobloxAvatar(username) {
     searchData = await proxyFetch(searchUrl);
     console.log('[Roblox] searchData:', searchData);
   } catch(e) {
-    console.error('[Roblox] Error buscando usuario:', e);
-    return null;
+    // Ojo: esto NO es "el usuario no existe", es "no pude preguntar".
+    // Se propaga para que la UI diga la verdad en vez de mentir.
+    console.error('[Roblox] Error de conexion buscando usuario:', e);
+    throw new Error('CONEXION');
   }
 
   if (!searchData?.data || searchData.data.length === 0) {
@@ -1574,7 +1582,13 @@ function onSearchInput(val) {
     } catch(e) {
       if (miSeq !== searchSeq) return;
       searching.textContent = '';
-      document.getElementById('avatarNotFound').classList.add('show');
+      const cartel = document.getElementById('avatarNotFound');
+      // Un fallo de red no significa que el jugador no exista.
+      cartel.textContent = e.message === 'CONEXION'
+        ? 'Connection failed — try again'
+        : 'User not found';
+      cartel.classList.add('show');
+      window._foundUser = null;
     }
   }, 700); // espera 700ms tras dejar de escribir
 }
