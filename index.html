@@ -1476,7 +1476,10 @@ async function fetchRobloxAvatar(username) {
      conteste bien. Antes se probaban en serie con timeout de 8s, y
      como allorigins tarda entre 8 y 22s se abortaba practicamente
      siempre antes de recibir nada. */
-  async function proxyFetch(url) {
+  async function proxyFetch(url, opciones = {}) {
+    // Los proxies publicos solo hacen GET. El POST necesita el Worker.
+    if (opciones.method === 'POST' && !WORKER_PROXY) throw new Error('CONEXION');
+
     const urls = WORKER_PROXY
       ? [WORKER_PROXY + encodeURIComponent(url)]
       : PUBLIC_PROXIES.map(build => build(url));
@@ -1485,9 +1488,16 @@ async function fetchRobloxAvatar(username) {
       console.log('[Roblox] Intentando proxy:', proxyUrl);
       const res = await fetch(proxyUrl, {
         signal: AbortSignal.timeout(PROXY_TIMEOUT),
-        headers: { 'Accept': 'application/json' }
+        method: opciones.method || 'GET',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: opciones.body
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const err = new Error(`HTTP ${res.status}`);
+        // 429 lo manda Roblox, no el proxy: hay que distinguirlo.
+        if (res.status === 429) err.codigo = 'LIMITE';
+        throw err;
+      }
       const parsed = JSON.parse(await res.text());
       // allorigins /get envuelve la respuesta en .contents
       return parsed.contents !== undefined ? JSON.parse(parsed.contents) : parsed;
@@ -1496,34 +1506,56 @@ async function fetchRobloxAvatar(username) {
     try {
       return await Promise.any(intentos);
     } catch(e) {
-      console.warn('[Roblox] Fallaron todos los proxies:',
-        e.errors ? e.errors.map(x => x.message) : e.message);
-      throw new Error('Todos los proxies fallaron');
+      const errores = e.errors || [e];
+      console.warn('[Roblox] Fallaron todos los proxies:', errores.map(x => x.message));
+      throw new Error(errores.some(x => x.codigo === 'LIMITE') ? 'LIMITE' : 'CONEXION');
     }
   }
 
-  // Step 1: buscar userId por nombre exacto
-  const searchUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(username)}&limit=10`;
-  let searchData;
+  /* Step 1: resolver el nombre a un userId.
+     Primero por coincidencia exacta con POST /v1/usernames/users, que es
+     el endpoint pensado justo para esto y no tiene el limite agresivo de
+     /v1/users/search: ese devuelve 429 a la segunda o tercera busqueda,
+     que con un buscador que dispara al teclear se agota enseguida.
+     La busqueda parcial queda solo de reserva. */
+  let user = null;
+
   try {
-    searchData = await proxyFetch(searchUrl);
-    console.log('[Roblox] searchData:', searchData);
+    const exacta = await proxyFetch('https://users.roblox.com/v1/usernames/users', {
+      method: 'POST',
+      body: JSON.stringify({ usernames: [username], excludeBannedUsers: false })
+    });
+    user = exacta?.data?.[0] || null;
+    console.log('[Roblox] Coincidencia exacta:', user);
+    // Respondio bien y no existe: no gastamos una peticion de /search.
+    if (!user) return null;
   } catch(e) {
-    // Ojo: esto NO es "el usuario no existe", es "no pude preguntar".
-    // Se propaga para que la UI diga la verdad en vez de mentir.
-    console.error('[Roblox] Error de conexion buscando usuario:', e);
-    throw new Error('CONEXION');
+    if (e.message === 'LIMITE') throw e;
+    console.log('[Roblox] Sin exacta (' + e.message + '), probando busqueda parcial');
   }
 
-  if (!searchData?.data || searchData.data.length === 0) {
-    console.log('[Roblox] No se encontraron usuarios');
-    return null;
-  }
+  if (!user) {
+    const searchUrl = `https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(username)}&limit=10`;
+    let searchData;
+    try {
+      searchData = await proxyFetch(searchUrl);
+      console.log('[Roblox] searchData:', searchData);
+    } catch(e) {
+      // Ojo: esto NO es "el usuario no existe", es "no pude preguntar".
+      // Se propaga para que la UI diga la verdad en vez de mentir.
+      console.error('[Roblox] Error buscando usuario:', e);
+      throw e;
+    }
 
-  // Buscar coincidencia exacta primero, si no la primera
-  let user = searchData.data.find(u =>
-    u.name.toLowerCase() === username.toLowerCase()
-  ) || searchData.data[0];
+    if (!searchData?.data || searchData.data.length === 0) {
+      console.log('[Roblox] No se encontraron usuarios');
+      return null;
+    }
+
+    user = searchData.data.find(u =>
+      u.name.toLowerCase() === username.toLowerCase()
+    ) || searchData.data[0];
+  }
 
   const userId = user.id;
   const userName = user.name;
@@ -1589,9 +1621,10 @@ function onSearchInput(val) {
       searching.textContent = '';
       const cartel = document.getElementById('avatarNotFound');
       // Un fallo de red no significa que el jugador no exista.
-      cartel.textContent = e.message === 'CONEXION'
-        ? 'Connection failed — try again'
-        : 'User not found';
+      cartel.textContent =
+        e.message === 'LIMITE'   ? 'Too many searches — wait a moment' :
+        e.message === 'CONEXION' ? 'Connection failed — try again' :
+                                   'User not found';
       cartel.classList.add('show');
       window._foundUser = null;
     }
