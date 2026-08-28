@@ -80,9 +80,13 @@ const servidor = http.createServer(async (req, res) => {
     if (err) return res.writeHead(404).end('No encontrado: ' + rel);
 
     if (archivo.endsWith('index.html')) {
-      // Apuntamos la pagina al proxy local sin tocar el archivo en disco
+      // Apuntamos la pagina al proxy local sin tocar el archivo en disco,
+      // valga lo que valga WORKER_PROXY (vacio o ya con el Worker puesto).
       datos = Buffer.from(
-        datos.toString('utf8').replace("const WORKER_PROXY = '';", "const WORKER_PROXY = '/proxy?url=';"),
+        datos.toString('utf8').replace(
+          /^const WORKER_PROXY = .*$/m,
+          "const WORKER_PROXY = '/proxy?url=';"
+        ),
         'utf8'
       );
     }
