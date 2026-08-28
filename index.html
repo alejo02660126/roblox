@@ -1588,31 +1588,53 @@ async function fetchRobloxAvatar(username) {
   const displayName = user.displayName || user.name;
   console.log('[Roblox] User encontrado:', userName, 'ID:', userId);
 
-  // Step 2: obtener thumbnail del avatar
+  /* Step 2: el avatar, en segundo plano y SIN bloquear la tarjeta.
+
+     Medido contra el Worker: los nombres salen de cache en ~1s, pero el
+     thumbnail solo pasa 2 de cada 6 veces, porque Roblox estrangula las
+     IPs de Cloudflare bastante mas en thumbnails que en la busqueda de
+     nombres (directo desde una IP domestica: 6 de 6). Esperarlo dejaba
+     la tarjeta 5 segundos congelada para acabar igual sin foto.
+
+     Ahora la tarjeta sale enseguida con el avatar de relleno y la foto
+     se cuela cuando llega. Como el Worker cachea cada acierto 24h, la
+     siguiente busqueda de ese usuario la muestra al instante. */
   const thumbUrl = `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png&isCircular=true`;
-  let thumbData;
-  try {
-    thumbData = await proxyFetch(thumbUrl);
-    console.log('[Roblox] thumbData:', thumbData);
-  } catch(e) {
-    console.error('[Roblox] Error obteniendo thumbnail:', e);
-    // Si falla el thumb igual retornamos el usuario sin foto
-    return { userId, userName, displayName, avatarUrl: '' };
-  }
 
-  /* Roblox manda imageUrl tambien cuando el avatar no esta disponible,
-     pero apuntando a un marcador suyo: "Blocked" (moderado) devuelve una
-     imagen de documento tachado, y "Pending" una de "generando". Cargan
-     con 200, asi que el onerror de la img no salta y se colaban en la
-     tarjeta como si fueran el avatar. Solo vale el estado "Completed". */
-  const thumb = thumbData?.data?.[0];
-  if (thumb && thumb.state !== 'Completed') {
-    console.log('[Roblox] Avatar no disponible, estado:', thumb.state);
-  }
-  const avatarUrl = thumb?.state === 'Completed' ? (thumb.imageUrl || '') : '';
-  console.log('[Roblox] avatarUrl:', avatarUrl);
+  (async () => {
+    // Reintento paciente: aqui esperar no le cuesta nada al usuario,
+    // porque ya tiene su tarjeta delante.
+    for (let ronda = 0; ronda < 3; ronda++) {
+      if (miSeq !== searchSeq) return;
+      try {
+        const thumbData = await proxyFetch(thumbUrl);
+        const thumb = thumbData?.data?.[0];
 
-  return { userId, userName, displayName, avatarUrl };
+        /* Roblox manda imageUrl tambien cuando el avatar no esta
+           disponible, pero apuntando a un marcador suyo: "Blocked"
+           (moderado) devuelve una imagen de documento tachado y
+           "Pending" una de "generando". Cargan con 200, asi que el
+           onerror de la img no salta y se colaban en la tarjeta como si
+           fueran el avatar. Solo vale el estado "Completed". */
+        if (thumb?.state !== 'Completed' || !thumb.imageUrl) {
+          console.log('[Roblox] Avatar no disponible, estado:', thumb?.state);
+          return;   // no insistir: se queda el de relleno
+        }
+
+        if (miSeq === searchSeq) {
+          document.getElementById('avatarImg').src = thumb.imageUrl;
+          console.log('[Roblox] Avatar cargado:', thumb.imageUrl);
+        }
+        return;
+      } catch(e) {
+        if (e.message !== 'LIMITE') return;
+        console.log('[Roblox] Avatar con 429, ronda', ronda + 1, 'de 3');
+        await new Promise(r => setTimeout(r, 2000 * (ronda + 1)));
+      }
+    }
+  })();
+
+  return { userId, userName, displayName, avatarUrl: '' };
 }
 
 function onSearchInput(val) {
