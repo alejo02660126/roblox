@@ -1490,13 +1490,14 @@ async function fetchRobloxAvatar(username) {
      sirve: los reintentos de dentro del Worker reusan la misma IP ya
      estrangulada y fallan siempre. */
   async function proxyFetch(url, opciones = {}) {
-    for (let intento = 0; intento < REINTENTOS_429; intento++) {
+    const maxIntentos = opciones.maxIntentos || REINTENTOS_429;
+    for (let intento = 0; intento < maxIntentos; intento++) {
       try {
         return await unIntento(url, opciones);
       } catch(e) {
-        const ultimo = intento === REINTENTOS_429 - 1;
+        const ultimo = intento === maxIntentos - 1;
         if (e.message !== 'LIMITE' || ultimo || miSeq !== searchSeq) throw e;
-        console.log(`[Roblox] 429, reintento ${intento + 1} de ${REINTENTOS_429 - 1}`);
+        console.log(`[Roblox] 429, reintento ${intento + 1} de ${maxIntentos - 1}`);
         await new Promise(r => setTimeout(r, 600 * (intento + 1)));
       }
     }
@@ -1602,12 +1603,16 @@ async function fetchRobloxAvatar(username) {
   const thumbUrl = `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png&isCircular=true`;
 
   (async () => {
-    // Reintento paciente: aqui esperar no le cuesta nada al usuario,
-    // porque ya tiene su tarjeta delante.
+    /* Pocas peticiones y bien separadas, no muchas seguidas.
+       Comprobado: insistir empeora las cosas. Con 3 rondas de 4 intentos
+       (12 peticiones por busqueda) el acierto cayo a 0 de 6, y tras tres
+       minutos en silencio volvio a 3 de 4. El limitador de Roblox
+       castiga el volumen sostenido, asi que aqui conviene ir de menos.
+       Esperar no le cuesta nada al usuario: ya tiene su tarjeta. */
     for (let ronda = 0; ronda < 3; ronda++) {
       if (miSeq !== searchSeq) return;
       try {
-        const thumbData = await proxyFetch(thumbUrl);
+        const thumbData = await proxyFetch(thumbUrl, { maxIntentos: 2 });
         const thumb = thumbData?.data?.[0];
 
         /* Roblox manda imageUrl tambien cuando el avatar no esta
@@ -1629,7 +1634,7 @@ async function fetchRobloxAvatar(username) {
       } catch(e) {
         if (e.message !== 'LIMITE') return;
         console.log('[Roblox] Avatar con 429, ronda', ronda + 1, 'de 3');
-        await new Promise(r => setTimeout(r, 2000 * (ronda + 1)));
+        await new Promise(r => setTimeout(r, 4000 * (ronda + 1)));
       }
     }
   })();
