@@ -1600,7 +1600,16 @@ async function fetchRobloxAvatar(username) {
     return { userId, userName, displayName, avatarUrl: '' };
   }
 
-  const avatarUrl = thumbData?.data?.[0]?.imageUrl || '';
+  /* Roblox manda imageUrl tambien cuando el avatar no esta disponible,
+     pero apuntando a un marcador suyo: "Blocked" (moderado) devuelve una
+     imagen de documento tachado, y "Pending" una de "generando". Cargan
+     con 200, asi que el onerror de la img no salta y se colaban en la
+     tarjeta como si fueran el avatar. Solo vale el estado "Completed". */
+  const thumb = thumbData?.data?.[0];
+  if (thumb && thumb.state !== 'Completed') {
+    console.log('[Roblox] Avatar no disponible, estado:', thumb.state);
+  }
+  const avatarUrl = thumb?.state === 'Completed' ? (thumb.imageUrl || '') : '';
   console.log('[Roblox] avatarUrl:', avatarUrl);
 
   return { userId, userName, displayName, avatarUrl };
